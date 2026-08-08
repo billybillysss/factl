@@ -1,0 +1,16 @@
+{
+  "name": {{ ("Processor_" ~ processor_alias) | tojson }},
+  "type": "ExecutePipeline",
+  "dependsOn": [],
+  "policy": {
+    "secureInput": false
+  },
+  "typeProperties": {
+    "pipeline": {
+      "referenceName": {{ item_id | tojson }},
+      "type": "PipelineReference"
+    },
+    "waitOnCompletion": true,
+    "parameters": {}
+  }
+}

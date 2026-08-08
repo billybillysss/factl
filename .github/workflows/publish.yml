@@ -1,0 +1,51 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: uv sync --dev
+      - run: uv run pytest
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify tag matches package version
+        run: |
+          TAG_VERSION="${{ github.ref_name }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          PKG_VERSION=$(uv run python -c "import factl; print(factl.__version__)")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package version ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "Version $PKG_VERSION verified"
+
+      - run: uv build
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

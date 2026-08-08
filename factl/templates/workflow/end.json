@@ -1,0 +1,8 @@
+{
+  "name": "End",
+  "type": "Wait",
+  "dependsOn": [],
+  "typeProperties": {
+    "waitTimeInSeconds": 1
+  }
+}

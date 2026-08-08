@@ -1,0 +1,126 @@
+version: 1
+
+project:
+  # Azure DevOps Git repository URL used by self branch sync commands.
+  # Used by self pull/push to connect a Fabric workspace to the repo branch.
+  repo_url: <repository url, e.g. https://dev.azure.com/org/project/_git/repo>
+
+# Optional default authentication mode for repo-level commands.
+# Precedence is: CLI flag -> profile/target auth -> project auth -> default.
+# Supported values: default, interactive, cli
+auth:
+  mode: default
+
+deployment:
+  control:
+    # Repo-relative root folder for control assets deployed to the Control Lakehouse.
+    # Used by: `factl ... deploy ctl`
+    local_path: <e.g. controls>
+
+    # Default control paths included in deployment when no explicit filter is provided.
+    # Each value may be a folder, file path, or glob pattern.
+    # Each value is relative to `deployment.control.local_path`.
+    includes:
+      - <e.g. folder1>
+      - <e.g. folder1/file.yaml>
+      - <e.g. folder1/**/*.yaml>
+
+  # Optional database deployment settings.
+  # Remove this section if database deploy is not used.
+  database:
+    # Repo-relative root folder for database assets deployed to the metadata database.
+    # Used by: `factl ... deploy db`
+    local_path: <e.g. controls/database>
+
+    # Default database paths included in deployment when no CLI `--include` is provided.
+    # Each value may be a folder, `.sql` file path, or glob pattern.
+    # Each value is relative to `deployment.database.local_path`.
+    includes:
+      - <e.g. folder1>
+      - <e.g. folder1/file.sql>
+      - <e.g. folder1/**/*.sql>
+
+  common:
+    # Repo-relative folder containing Fabric common items.
+    # Used by: `factl ... deploy com`
+    local_path: <e.g. fabric/com>
+
+    # Repo-relative parameter file for common-item deployment.
+    # This file is also used when deploying common items to your personal
+    # workspace.
+    # Parameter file format follows fabric-cicd conventions:
+    # https://microsoft.github.io/fabric-cicd
+    parameter_path: <e.g. fabric/parameters/parameter.yml>
+
+    control:
+      # Control lakehouse configuration used by control-related flows.
+      # Required for common deployment.
+      lakehouse:
+        # Name of the shared control lakehouse used by control-related flows.
+        name: <ctl lakehouse name, e.g. LH_CTL>
+
+        # Whether schema support is enabled when the lakehouse is created.
+        enable_schemas: false
+
+    # Default Fabric item types included in common deployment when no item filter is passed.
+    item_types:
+      - ApacheAirflowJob
+      - CopyJob
+      - DataAgent
+      - DataPipeline
+      - Dataflow
+      - Environment
+      - Eventhouse
+      - Eventstream
+      - GraphQLApi
+      - KQLDashboard
+      - KQLDatabase
+      - KQLQueryset
+      - Lakehouse
+      - MirroredDatabase
+      - MLExperiment
+      - MountedDataFactory
+      - Notebook
+      - Reflex
+      - Report
+      - SemanticModel
+      - SparkJobDefinition
+      - SQLDatabase
+      - UserDataFunction
+      - VariableLibrary
+
+  orchestration:
+    # Repo-relative parameter file for orchestration or workflow deployment.
+    # Used by: `factl ... deploy orc`
+    # This file is also used when deploying orchestration items to your personal
+    # workspace.
+    parameter_path: <e.g. fabric/parameters/datapipeline.yml>
+
+    processor:
+      # Fabric item types treated as processor assets during orchestration deployment.
+      # Default built-in execution templates support `DataPipeline` and `Notebook`.
+      # Add more item types here only when you provide a matching custom
+      # `<item_type>.json` workflow template in `workflow.template.path`.
+      item_types:
+        - DataPipeline
+        - Notebook
+
+      # Target root workspace folder for deployed processor items.
+      workspace_folder: <e.g. processors>
+
+    workflow:
+      # Subfolder under the control repo tree that contains workflow definitions.
+      # This path is relative to `deployment.control.local_path`.
+      control_folder: <e.g. workflows>
+
+      # Target root Fabric workspace folder for published workflow items.
+      workspace_folder: <e.g. workflows>
+
+      # template:
+      #   # Optional repo-relative path to a workflow template customization folder.
+      #   # Built-in workflow templates from factl are used by default. If provided,
+      #   # files with the same name override built-in workflow templates, for
+      #   # example `start.json`, `end.json`, or `<item_type>.json`.
+      #   # Workflow templates render Jinja2 variables from factl built-in
+      #   # variables and `.config/.factl/variables.yaml`.
+      #   path: <e.g. cicd/template/workflow>

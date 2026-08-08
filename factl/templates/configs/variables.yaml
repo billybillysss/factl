@@ -1,0 +1,16 @@
+version: 1
+
+targets:
+  # Workflow/template variables keyed by shared environment name.
+  # Personal orchestration deploys use the environment selected by
+  # `personal_parameter_env`.
+  # Built-in variables like `workspace_id`, `item_id`, `item_name`,
+  # `item_type`, `processor_name`, `processor_alias`, and `workflow_name`
+  # are provided automatically and cannot be redefined here.
+  # dev:
+  #   env_name: dev
+  #   retry_count: 3
+
+  # prd:
+  #   env_name: prd
+  #   retry_count: 5

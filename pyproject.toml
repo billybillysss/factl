@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "factl"
+description = "Declarative deployment and orchestration CLI for Microsoft Fabric"
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "adlfs>=2026.2.0",
+    "azure-identity>=1.23.0",
+    "click>=8.1.8",
+    "croniter>=2.0.0",
+    "fabric-cicd>=1.2.0,<2",
+    "fsspec>=2026.2.0",
+    "jinja2>=3.1.6",
+    "mssql-python==1.11.0",
+    "pydantic>=2.11.7",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+factl = "factl.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "factl"]
+
+[tool.setuptools.packages.find]
+include = ["factl*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "factl.__version__" }
+
+[tool.setuptools.package-data]
+factl = ["templates/configs/*.yaml", "templates/workflow/*.json"]
+
+[tool.uv]
+native-tls = true
+package = true

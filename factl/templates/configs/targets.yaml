@@ -1,0 +1,37 @@
+version: 1
+
+# Default shared environment to use when deploying common or orchestration
+# items to your personal workspace.
+personal_parameter_env: <target name, e.g. dev>
+
+targets:
+  # Shared environments only, for example: dev, test, prd.
+  dev:
+    # Fabric common workspace ID used for shared deployment.
+    com_workspace_id: <common workspace id, e.g. 00000000-0000-0000-0000-000000000000>
+
+    # Optional authentication mode override for this shared target.
+    # Supported values: default, interactive, cli
+    auth:
+      mode: default
+
+    # Environment policy for workflow schedules.
+    # When true, schedules are forced disabled for this environment during
+    # orchestration deployment and common promotion.
+    force_disable_schedules: false
+
+    # Optional fabric-cicd feature flags for this target.
+    # Supported values depend on the installed fabric-cicd version.
+    # Experimental features also require enable_experimental_features.
+    # fabric_cicd:
+    #   enabled_features:
+    #     - enable_experimental_features
+    #     - enable_bulk_publish
+    #     - enable_hard_delete
+
+    # meta_database:
+    #   # Metadata SQL host name used by shared database deployment.
+    #   host: <metadata sql host>
+    # 
+    #   # Metadata database name used by shared database deployment.
+    #   name: <metadata database name>
