@@ -107,7 +107,7 @@ factl profile delete <id> [--yes] [--log-level <level>]
 
 ## deploy (shared)
 
-Deploy resources to a shared environment defined in `targets.yaml`. Shared deploy commands always use the environment-first form `factl <env> deploy <resource>`. The environment name must match a key under `targets` in `targets.yaml`.
+Deploy resources to a shared environment defined in `targets.yaml`.
 
 ### `factl <env> deploy com`
 

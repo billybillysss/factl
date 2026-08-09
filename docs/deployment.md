@@ -21,10 +21,8 @@ Ensure you have:
 
 1. An active profile: `factl profile current`
 2. Repo configuration: `.config/.factl/project.yaml`, `targets.yaml`, `variables.yaml`
-3. Fabric items in `fabric/com/` (for common deploy)
-4. Workflow YAML in the configured workflow control folder (default: `controls/workflows/`; see `project.yaml`)
-
-Order matters when deploying multiple asset types: deploy **control** assets first (dbt models and profiles), then **common** items, then **orchestration**, and finally **database** scripts — `ctl → com → orc → db`.
+3. Fabric items in the directory configured by `deployment.common.local_path` in `project.yaml` (for common deploy)
+4. Workflow YAML in the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml` (relative to `deployment.control.local_path`)
 
 ### Deploy common items
 
@@ -32,7 +30,7 @@ Order matters when deploying multiple asset types: deploy **control** assets fir
 factl self deploy com
 ```
 
-Publishes all items from `fabric/com/` to your personal workspace. Items are filtered by the `item_types` list in `project.yaml`.
+Publishes all items from the directory configured by `deployment.common.local_path` in `project.yaml` to your personal workspace. Items are filtered by the `item_types` list in `project.yaml`.
 
 Filter specific item types:
 
@@ -52,7 +50,7 @@ factl self deploy com --exclude-item-type Report
 factl self deploy orc
 ```
 
-Compiles workflow YAML from the configured control folder (default: `controls/workflows/`) into Fabric DataPipelines and publishes them along with processor items.
+Compiles workflow YAML from the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml` (relative to `deployment.control.local_path`) into Fabric DataPipelines and publishes them along with processor items.
 
 Override schedule behavior:
 
@@ -70,7 +68,7 @@ factl self deploy orc --allow-schedules
 factl self deploy ctl --auto-create
 ```
 
-Uploads files from `controls/` to the control Lakehouse (`LH_CTL`) in your common workspace. The `--auto-create` flag creates the Lakehouse and controls folder if they don't exist.
+Uploads files from the directory configured by `deployment.control.local_path` in `project.yaml` to the control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`) in your common workspace. The `--auto-create` flag creates the Lakehouse and controls folder when they do not exist.
 
 Filter specific folders:
 
@@ -90,7 +88,7 @@ factl self deploy ctl --dry-run
 factl self deploy db
 ```
 
-Executes SQL scripts from `controls/database/` against the metadata database configured in your profile (`meta_database.host` and `meta_database.name`).
+Executes SQL scripts from the directory configured by `deployment.database.local_path` in `project.yaml` against the metadata database configured in your profile (`meta_database.host` and `meta_database.name`).
 
 Filter specific paths:
 
@@ -124,17 +122,15 @@ Shared deploy commands always use the environment-first form. Shorthand and full
 | `factl dev deploy ctl` | `factl dev deploy control` |
 | `factl dev deploy db` | `factl dev deploy database` |
 
-The `factl deploy <resource> <env>` form is not supported — the CLI requires the environment before the resource.
-
 ### Creating control Lakehouse in shared workspace
 
-When deploying control assets to a shared common workspace for the first time, the control Lakehouse might not exist:
+When deploying control assets to a shared common workspace for the first time:
 
 ```bash
 factl dev deploy ctl --auto-create
 ```
 
-This creates the controls folder and control Lakehouse (`LH_CTL`) in the shared common workspace using the settings from `project.yaml`.
+This creates the controls folder and control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`) in the shared common workspace.
 
 ## Git integration
 

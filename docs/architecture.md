@@ -6,7 +6,7 @@ How factl compiles declarative workflow definitions into Fabric DataPipelines an
 
 ### Processors
 
-A **processor** is a reusable Fabric item — typically a Notebook or DataPipeline. Processors are deployed once under a `processors/` workspace folder and referenced by name in any number of workflows.
+A **processor** is a reusable Fabric item — typically a Notebook or DataPipeline. Processors are deployed once to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml` and referenced by name in any number of workflows.
 
 Processors carry no environment-specific logic. That logic is supplied per workflow through **params**:
 
@@ -27,7 +27,7 @@ The processor notebook reads `start_date` as a parameter. The workflow YAML sets
 
 ### Workflows
 
-A **workflow** is a YAML file under the configured control folder (default: `controls/workflows/`) that declares:
+A **workflow** is a YAML file under the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml` (relative to `deployment.control.local_path`) that declares:
 
 * **Processors** — what runs (by name reference)
 * **Dependencies** — run order between processors
@@ -43,12 +43,10 @@ Schedules are defined in the same YAML file as the workflow:
 ```yaml
 schedules:
   - enabled: false
-    schedule_type: daily
-    times:
-      - "06:00"
+    cron_expression: "0 6 * * *"
 ```
 
-Supported schedule types: `cron` (interval), `daily`, `weekly`, `monthly`. Cron expressions can also be used via `cron_expression` — the framework auto-converts them to the appropriate Fabric-native type. Schedules can be force-disabled per environment using `force_disable_schedules` in `targets.yaml`.
+The framework auto-converts cron expressions to Fabric-native schedule types (`cron`, `daily`, `weekly`, `monthly`). Schedules can be force-disabled per environment using `force_disable_schedules` in `targets.yaml`.
 
 ## Compilation pipeline
 
@@ -113,20 +111,21 @@ Templates have access to built-in variables and user-defined variables:
 factl expects a two-workspace layout per environment:
 
 **Common workspace** — the workspace factl deploys to (`com_workspace_id` in `targets.yaml`). Contains:
-- Processors (Notebooks, DataPipelines) under `processors/`
-- Compiled workflow DataPipelines under `workflows/`
+- Processors (Notebooks, DataPipelines) deployed to the folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`
+- Compiled workflow DataPipelines deployed to the folder configured by `deployment.orchestration.workflow.workspace_folder` in `project.yaml`
 - Common Fabric items (Environments, Spark Job Definitions, etc.)
-- The control Lakehouse (`LH_CTL`) holding dbt models, profiles, and configuration files
+- The control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`) holding dbt models, profiles, and configuration files
 
 **Data workspace(s)** — where medallion Lakehouses, Warehouses, and SQL databases that hold your analytical data live. factl does **not** deploy to these workspaces; they are referenced by processors through:
 - `workspace_id` and `lakehouse_id` parameters passed via workflow `params`
-- `fabric/parameters/*.yml` parameter files, which substitute workspace and Lakehouse IDs per environment at deploy time
-- dbt profiles (`controls/dbt/profiles.yml`), which point at the data workspace and Lakehouse
+- parameter files (configured by `deployment.common.parameter_path` and `deployment.orchestration.parameter_path` in `project.yaml`), which substitute workspace and Lakehouse IDs per environment at deploy time
+- dbt profiles under the directory configured by `deployment.control.local_path` in `project.yaml`, which point at the data workspace and Lakehouse
 
 ```
  ┌──────────────────────────────────────┐
  │          Common Workspace            │
- │  (processors, workflows, LH_CTL,     │
+ │  (processors, workflows,          │
+ │   control Lakehouse,                │
  │   common items)                      │
  │  com_workspace_id in targets.yaml    │
  └────────────┬─────────────────────────┘
@@ -149,10 +148,10 @@ factl manages four categories of Fabric artifacts:
 
 | Type | Source | Destination | Command |
 |---|---|---|---|
-| **Common** | `fabric/com/` | Common workspace root (via fabric-cicd) | `deploy com` |
-| **Orchestration** | Workflow YAML (compiled) + processor items | Common workspace (`workflows/` and `processors/` folders) | `deploy orc` |
-| **Control** | `controls/` (config files, dbt models) | Control Lakehouse (`LH_CTL`) in the common workspace (via OneLake fsspec) | `deploy ctl` |
-| **Database** | `controls/database/` (SQL scripts) | Metadata SQL database | `deploy db` |
+| **Common** | Configured by `deployment.common.local_path` in `project.yaml` | Common workspace root (via fabric-cicd) | `deploy com` |
+| **Orchestration** | Workflow YAML (compiled) + processor items | Common workspace (deployed to the folders configured by `deployment.orchestration.workflow.workspace_folder` and `deployment.orchestration.processor.workspace_folder`) | `deploy orc` |
+| **Control** | Configured by `deployment.control.local_path` in `project.yaml` (config files, dbt models) | Control Lakehouse in the common workspace (configured by `deployment.common.control.lakehouse.name` in `project.yaml`, via OneLake fsspec) | `deploy ctl` |
+| **Database** | Configured by `deployment.database.local_path` in `project.yaml` (SQL scripts) | Metadata SQL database | `deploy db` |
 
 ### Common deployment
 
@@ -169,11 +168,11 @@ Compiles workflow YAML into Fabric DataPipeline JSON, writes the compiled output
 
 ### Control deployment
 
-Uploads files from the `controls/` directory to the control Lakehouse (`LH_CTL`) in the common workspace using the OneLake file system API (fsspec). Supports dry-run mode (`--dry-run`) to preview changes.
+Uploads files from the directory configured by `deployment.control.local_path` in `project.yaml` to the control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`) in the common workspace using the OneLake file system API (fsspec). Supports dry-run mode (`--dry-run`) to preview changes.
 
 ### Database deployment
 
-Executes SQL scripts from `controls/database/` against a metadata SQL database. Uses mssql-python for connections. Supports include filtering.
+Executes SQL scripts from the directory configured by `deployment.database.local_path` in `project.yaml` against a metadata SQL database. Uses mssql-python for connections. Supports include filtering.
 
 ## Environment model
 
@@ -204,7 +203,7 @@ Executes SQL scripts from `controls/database/` against a metadata SQL database. 
 
 ### Shared deployment flow
 
-1. Merge to the shared branch (repo-defined, e.g., `main` or a `dev` trunk) — feature branches are cut from it
+1. Merge to the integration branch (e.g., `dev`) — feature branches are cut from it
 2. `factl <env> deploy com|orc|ctl|db` — deploys to shared workspace
 3. Promotion: `dev` → `test` → `prd`
 

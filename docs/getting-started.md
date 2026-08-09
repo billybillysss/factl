@@ -59,10 +59,10 @@ Open `.config/.factl/project.yaml` and update:
 | Field | What to set |
 |---|---|
 | `project.repo_url` | Your Git repository URL (Azure DevOps or GitHub) |
-| `deployment.control.local_path` | Path to control assets (default: `controls`) |
-| `deployment.common.local_path` | Path to Fabric items (default: `fabric/com`) |
+| `deployment.control.local_path` | Path to control assets (e.g. `controls`) |
+| `deployment.common.local_path` | Path to Fabric items (e.g. `fabric/com`) |
 | `deployment.common.parameter_path` | Path to the fabric-cicd parameter file |
-| `deployment.common.control.lakehouse.name` | Name of your control Lakehouse (`LH_CTL`) in the common workspace |
+| `deployment.common.control.lakehouse.name` | Name of your control Lakehouse (e.g. `LH_CTL`) in the common workspace |
 | `deployment.orchestration.parameter_path` | Path to orchestration parameter file |
 
 ### Configure targets.yaml
@@ -89,7 +89,7 @@ targets:
 
 `personal_parameter_env` tells factl which shared environment's variables and parameter files to use when deploying to your personal workspace.
 
-The `com_workspace_id` values are your common workspace IDs — the workspaces factl deploys orchestration to. Data workspaces (where medallion Lakehouses and Warehouses live) are not listed here. They are referenced by processors through workspace and Lakehouse IDs in `fabric/parameters/*.yml` — the same processor code points at a different data workspace per environment through parameter replacement.
+The `com_workspace_id` values are your common workspace IDs — the workspaces factl deploys orchestration to. Data workspaces (where medallion Lakehouses and Warehouses live) are not listed here. They are referenced by processors through workspace and Lakehouse IDs in parameter files configured in `project.yaml` — the same processor code points at a different data workspace per environment through parameter replacement.
 
 ### Configure variables.yaml
 
@@ -161,20 +161,20 @@ factl profile current
 
 You have two ways to create Fabric items:
 
-- **Create locally** — add Notebooks, Environments, Spark Job Definitions, etc. under `fabric/com/` in your repo, commit to Git, then deploy.
+- **Create locally** — add Notebooks, Environments, Spark Job Definitions, etc. under the directory configured by `deployment.common.local_path` in `project.yaml` (e.g. `fabric/com`), commit to Git, then deploy.
 - **Create in the workspace** — build items in your common workspace via the Fabric UI, then sync back to Git:
 
   ```bash
   factl self push <branch> --comment "Created new notebook"
   ```
 
-  This commits workspace items to your branch under `fabric/com/`.
+  This commits workspace items to your branch under the local repository path configured by `deployment.common.local_path`.
 
 Create parameter files for environment-specific replacement of IDs (workspace IDs, Lakehouse IDs, etc.). See the [fabric-cicd parameter file documentation](https://microsoft.github.io/fabric-cicd) for the format. Parameter file paths are configured via `deployment.common.parameter_path` and `deployment.orchestration.parameter_path` in `project.yaml`.
 
 ## Step 4: Deploy to your personal common workspace
 
-Deploy control assets first (creates the control Lakehouse if needed):
+Deploy control assets first (use `--auto-create` when the control Lakehouse does not exist yet):
 
 ```bash
 factl self deploy ctl --auto-create
@@ -198,11 +198,11 @@ Open your personal workspace in the [Fabric portal](https://app.fabric.microsoft
 
 You should see:
 
-* Items from `fabric/com/` deployed in the workspace
-* A `controls` folder in your control Lakehouse (`LH_CTL`) with control assets
-* Compiled DataPipelines under the `workflows/` folder
-* Processor items (Notebooks, DataPipelines) under the `processors/` folder
-* Data Lakehouses (e.g., `LH_DP`) referenced by processors may live in a separate data workspace — they are wired to the common workspace through parameter files
+* Items deployed in the workspace (from the directory configured by `deployment.common.local_path` in `project.yaml`)
+* Control assets in the control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`)
+* Compiled DataPipelines under the folder configured by `deployment.orchestration.workflow.workspace_folder` in `project.yaml`
+* Processor items (Notebooks, DataPipelines) under the folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`
+* Data Lakehouses referenced by processors may live in a separate data workspace — they are wired to the common workspace through parameter files
 
 ## Step 6: Deploy to a shared common workspace
 

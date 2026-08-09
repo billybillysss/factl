@@ -10,8 +10,8 @@ Reference for all factl configuration files, settings, and precedence rules.
 | `project.yaml` | `.config/.factl/` | Per-repository | `factl config init` |
 | `targets.yaml` | `.config/.factl/` | Per-repository | `factl config init` |
 | `variables.yaml` | `.config/.factl/` | Per-repository | `factl config init` |
-| Parameter files | `fabric/parameters/` | Per-repository | Manual |
-| Workflow definitions | `{control.local_path}/{workflow.control_folder}/` (default: `controls/workflows/`) | Per-repository | Manual |
+| Parameter files | Repo-defined (configured in `project.yaml`) | Per-repository | Manual |
+| Workflow definitions | Repo-defined (configured in `project.yaml`) | Per-repository | Manual |
 
 ## profiles.yaml (`~/.factl/`)
 
@@ -130,7 +130,7 @@ deployment:
       - Environment
       - Lakehouse
       - SparkJobDefinition
-      # ... other supported Fabric item types (see below)
+      # ... remaining item types
 ```
 
 | Field | Description |
@@ -140,10 +140,6 @@ deployment:
 | `control.lakehouse.name` | Control Lakehouse display name (in the common workspace) |
 | `control.lakehouse.enable_schemas` | Whether to enable schema support |
 | `item_types` | Default Fabric item types included in common deploy |
-
-The full set of supported common item types is:
-
-`ApacheAirflowJob`, `CopyJob`, `DataAgent`, `DataPipeline`, `Dataflow`, `Environment`, `Eventhouse`, `Eventstream`, `GraphQLApi`, `KQLDashboard`, `KQLDatabase`, `KQLQueryset`, `Lakehouse`, `MirroredDatabase`, `MLExperiment`, `MountedDataFactory`, `Notebook`, `Reflex`, `Report`, `SemanticModel`, `SparkJobDefinition`, `SQLDatabase`, `UserDataFunction`, `VariableLibrary`
 
 ### deployment.orchestration
 
@@ -170,11 +166,10 @@ deployment:
 | `workflow.workspace_folder` | Workspace folder for published workflow items |
 | `workflow.template.path` | Optional custom template directory path |
 
-> **Note:** the legacy key `deployment.orchestration.workflow.template.variables` is rejected with an explicit error. Workflow template variables must be defined in `.config/.factl/variables.yaml` instead.
 
 ## targets.yaml (`.config/.factl/`)
 
-Shared environment common workspace IDs and settings. These are the workspaces factl deploys orchestration (processors, workflows, common items, control Lakehouse) to. Data workspaces (where medallion Lakehouses and Warehouses live) are not configured here — they are referenced by processors through parameter files (`fabric/parameters/`).
+Shared environment common workspace IDs and settings. These are the workspaces factl deploys orchestration (processors, workflows, common items, control Lakehouse) to. Data workspaces (where medallion Lakehouses and Warehouses live) are not configured here — they are referenced by processors through parameter files configured in `project.yaml`.
 
 ```yaml
 version: 1
@@ -207,10 +202,6 @@ targets:
 | `targets.<env>.meta_database.host` | No | SQL endpoint for shared database deploy |
 | `targets.<env>.meta_database.name` | No | Database name for shared database deploy |
 | `targets.<env>.fabric_cicd.enabled_features` | No | fabric-cicd feature flags for this env |
-
-Supported `fabric_cicd.enabled_features` values:
-
-`enable_lakehouse_unpublish`, `enable_warehouse_unpublish`, `enable_sqldatabase_unpublish`, `enable_eventhouse_unpublish`, `enable_kqldatabase_unpublish`, `enable_shortcut_publish`, `disable_workspace_folder_publish`, `continue_on_shortcut_failure`, `enable_environment_variable_replacement`, `enable_experimental_features`, `enable_items_to_include`, `enable_exclude_folder`, `enable_include_folder`, `enable_shortcut_exclude`, `enable_response_collection`, `enable_hard_delete`, `enable_bulk_publish`
 
 ## variables.yaml (`.config/.factl/`)
 

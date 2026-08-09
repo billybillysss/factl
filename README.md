@@ -28,10 +28,11 @@ Processor items        Workflow YAML
       ▼                      ▼
 ┌──────────────────────────────────────┐
 │          Common Workspace            │
-│  (processors, workflows, LH_CTL,    │
-│   common items)                       │
+│  (processors, workflows,            │
+│   control Lakehouse,                 │
+│   common items)                      │
 │  ┌─────────────┐ ┌────────────────┐  │
-│  │ processors/ │ │   workflows/   │  │
+│  │ processors  │ │   workflows    │  │
 │  └─────────────┘ └────────────────┘  │
 └────────────┬─────────────────────────┘
              │  workspace_id / lakehouse_id
@@ -135,11 +136,13 @@ This creates `~/.factl/profiles.yaml` and sets your profile as active.
 
 ### 4. Deploy control assets to your personal workspace
 
-Control assets (dbt models, configuration files) are uploaded to the control Lakehouse (`LH_CTL`) in your workspace:
+Control assets (dbt models, configuration files) are uploaded to the control Lakehouse in your workspace:
 
 ```bash
 factl self deploy ctl --auto-create
 ```
+
+Use `--auto-create` when the control Lakehouse does not exist yet.
 
 ### 5. Deploy common items and orchestration
 
@@ -149,7 +152,7 @@ Deploy common items:
 factl self deploy com
 ```
 
-This publishes all items from `fabric/com/` to your personal workspace using the parameter file configured in `project.yaml`.
+This publishes all items from the directory configured by `deployment.common.local_path` in `project.yaml` to your personal workspace. Workspace and Lakehouse IDs are replaced via the parameter file configured by `deployment.common.parameter_path` in `project.yaml`.
 
 Orchestration compiles your workflow YAML into Fabric DataPipelines and deploys them:
 
@@ -161,14 +164,14 @@ factl self deploy orc
 
 Open your personal workspace in the Fabric portal. You should see:
 
-* Fabric items from `fabric/com/` deployed to the workspace
-* A `controls` folder with your control assets in the control Lakehouse
-* Compiled DataPipelines under the `workflows/` folder
-* Data Lakehouses (e.g., `LH_DP`) referenced by processors may live in a separate data workspace, wired via parameter files
+* Fabric items deployed to the workspace (from the directory configured by `deployment.common.local_path` in `project.yaml`)
+* Control assets uploaded to the control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`)
+* Compiled DataPipelines under the folder configured by `deployment.orchestration.workflow.workspace_folder` in `project.yaml`
+* Data Lakehouses referenced by processors may live in a separate data workspace, wired via parameter files
 
 ### Example workflow
 
-Here's a complete workflow YAML (by default authored under `controls/workflows/`):
+Here's a complete workflow YAML (authored under the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml`, relative to `deployment.control.local_path`):
 
 ```yaml
 workflows:
@@ -176,9 +179,7 @@ workflows:
     description: "NYC taxi + NOAA weather medallion processing."
     schedules:
       - enabled: false
-        schedule_type: daily
-        times:
-          - "06:00"
+        cron_expression: "0 6 * * *"
     processors:
       - name: "NB_IngestTlcTripsToBronze"
         alias: "ingest_tlc"
@@ -207,16 +208,16 @@ workflows:
 
 The workflow declares three processors (two ingests that run in parallel, followed by a dbt run), a daily schedule, and Jinja2 templating for environment-specific values.
 
-The processors themselves (`NB_IngestTlcTripsToBronze`, `NB_IngestNoaaWeatherToBronze`, `NB_RunDbtTaxiWeather`) are Fabric items deployed once to `processors/`. They can be referenced by name in any workflow. For example, `NB_IngestNoaaWeatherToBronze` could appear in a different workflow with different `start_date` and `end_date` params — same processor, different behavior.
+The processors themselves (`NB_IngestTlcTripsToBronze`, `NB_IngestNoaaWeatherToBronze`, `NB_RunDbtTaxiWeather`) are Fabric items deployed once to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`. They can be referenced by name in any workflow. For example, `NB_IngestNoaaWeatherToBronze` could appear in a different workflow with different `start_date` and `end_date` params — same processor, different behavior.
 
 ## How it works
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌───────────────────┐
 │ Workflow YAML │ ──▶ │  Framework   │ ──▶ │ Fabric DataPipeline│
-│ (controls/)   │     │  Compiler    │     │ JSON definitions   │
-└──────────────┘     └──────────────┘     └───────────────────┘
-                                                  │
+│ (under your   │     │  Compiler    │     │ JSON definitions   │
+│  control dir) │     └──────────────┘     └───────────────────┘
+└──────────────┘                                   │
                     ┌──────────────┐               │
                     │ fabric-cicd  │ ◀─────────────┘
                     │ publish      │
@@ -227,12 +228,12 @@ The processors themselves (`NB_IngestTlcTripsToBronze`, `NB_IngestNoaaWeatherToB
                     │  Workspace  │ ──▶ │ (Lakehouses,     │
                     │ (processors,│     │  Warehouses,     │
                     │  workflows, │     │  SQL databases)  │
-                    │  LH_CTL)    │     │                  │
+                    │  control LH)│     │                  │
                     └─────────────┘     └──────────────────┘
 ```
 
-1. **Deploy processors.** Fabric items (Notebooks, DataPipelines, or items backed by custom templates) are deployed to the `processors/` folder in the common workspace. Each processor is a reusable building block — deployed once, used by many workflows.
-2. **Author workflows.** You write a workflow YAML file in the configured control folder (default: `controls/workflows/`) that references processors by name with per-workflow parameters, dependencies, and schedules. The same processor can appear in multiple workflows with different params.
+1. **Deploy processors.** Fabric items (Notebooks, DataPipelines, or items backed by custom templates) are deployed to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`. Each processor is a reusable building block — deployed once, used by many workflows.
+2. **Author workflows.** You write a workflow YAML file under the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml` (relative to `deployment.control.local_path`) that references processors by name with per-workflow parameters, dependencies, and schedules. The same processor can appear in multiple workflows with different params.
 3. **Compile.** `factl self deploy orc` loads the YAML, validates it with Pydantic, renders Jinja2 template variables, and compiles the workflow into Fabric DataPipeline JSON using built-in activity templates.
 4. **Publish.** The compiled JSON is published to the common workspace via the fabric-cicd SDK. Parameters are environment-aware — your workspace gets the right workspace and Lakehouse IDs (for both the common and data workspaces) without changing the workflow definition.
 5. **Schedule.** Schedule definitions from the YAML are converted to Fabric schedule JSON and deployed alongside the pipeline.
@@ -243,7 +244,7 @@ Four deployment types are supported:
 |---|---|
 | `deploy com` / `deploy common` | Fabric items (Notebooks, Environments, Lakehouses, etc.) to common workspace |
 | `deploy orc` / `deploy orchestration` | Compiled workflows + processor items to common workspace |
-| `deploy ctl` / `deploy control` | Control assets (dbt models, configs) to control Lakehouse (`LH_CTL`) in the common workspace |
+| `deploy ctl` / `deploy control` | Control assets (dbt models, configs) to the control Lakehouse in the common workspace |
 | `deploy db` / `deploy database` | SQL scripts to metadata database |
 
 ## Documentation
