@@ -51,6 +51,8 @@ active: bs
 | `fabric_cicd.enabled_features` | No | fabric-cicd feature flags for this profile |
 | `aliases` | No | Additional identifiers for `factl profile use` |
 
+`factl profile use <selector>` matches against a set of aliases derived automatically from each profile — the profile id, the workspace GUID, the display name (with and without spaces), and the display name's initials — plus any explicit `aliases` entries. A selector that matches more than one profile is rejected as ambiguous.
+
 Commands:
 * `factl profile set <id> ...` — create or update a profile
 * `factl profile list` — list all profiles
@@ -94,7 +96,7 @@ deployment:
 | Field | Description |
 |---|---|
 | `local_path` | Repo-relative root for control assets deployed to Lakehouse |
-| `includes` | Default paths to deploy when no `--folder` filter is passed |
+| `includes` | Default paths to deploy when no `--folder` filter is passed. Each entry may be a folder, file path, or glob pattern, relative to `local_path` |
 
 ### deployment.database (optional)
 
@@ -109,7 +111,7 @@ deployment:
 | Field | Description |
 |---|---|
 | `local_path` | Repo-relative root for SQL scripts |
-| `includes` | Default paths when no `--include` filter is passed |
+| `includes` | Default paths when no `--include` filter is passed. Each entry may be a folder, `.sql` file path, or glob pattern, relative to `local_path` |
 
 ### deployment.common
 
@@ -128,7 +130,7 @@ deployment:
       - Environment
       - Lakehouse
       - SparkJobDefinition
-      # ... all supported Fabric item types
+      # ... other supported Fabric item types (see below)
 ```
 
 | Field | Description |
@@ -138,6 +140,10 @@ deployment:
 | `control.lakehouse.name` | Control Lakehouse display name (in the common workspace) |
 | `control.lakehouse.enable_schemas` | Whether to enable schema support |
 | `item_types` | Default Fabric item types included in common deploy |
+
+The full set of supported common item types is:
+
+`ApacheAirflowJob`, `CopyJob`, `DataAgent`, `DataPipeline`, `Dataflow`, `Environment`, `Eventhouse`, `Eventstream`, `GraphQLApi`, `KQLDashboard`, `KQLDatabase`, `KQLQueryset`, `Lakehouse`, `MirroredDatabase`, `MLExperiment`, `MountedDataFactory`, `Notebook`, `Reflex`, `Report`, `SemanticModel`, `SparkJobDefinition`, `SQLDatabase`, `UserDataFunction`, `VariableLibrary`
 
 ### deployment.orchestration
 
@@ -163,6 +169,8 @@ deployment:
 | `workflow.control_folder` | Subfolder under controls for workflow YAML definitions |
 | `workflow.workspace_folder` | Workspace folder for published workflow items |
 | `workflow.template.path` | Optional custom template directory path |
+
+> **Note:** the legacy key `deployment.orchestration.workflow.template.variables` is rejected with an explicit error. Workflow template variables must be defined in `.config/.factl/variables.yaml` instead.
 
 ## targets.yaml (`.config/.factl/`)
 
@@ -199,6 +207,10 @@ targets:
 | `targets.<env>.meta_database.host` | No | SQL endpoint for shared database deploy |
 | `targets.<env>.meta_database.name` | No | Database name for shared database deploy |
 | `targets.<env>.fabric_cicd.enabled_features` | No | fabric-cicd feature flags for this env |
+
+Supported `fabric_cicd.enabled_features` values:
+
+`enable_lakehouse_unpublish`, `enable_warehouse_unpublish`, `enable_sqldatabase_unpublish`, `enable_eventhouse_unpublish`, `enable_kqldatabase_unpublish`, `enable_shortcut_publish`, `disable_workspace_folder_publish`, `continue_on_shortcut_failure`, `enable_environment_variable_replacement`, `enable_experimental_features`, `enable_items_to_include`, `enable_exclude_folder`, `enable_include_folder`, `enable_shortcut_exclude`, `enable_response_collection`, `enable_hard_delete`, `enable_bulk_publish`
 
 ## variables.yaml (`.config/.factl/`)
 
