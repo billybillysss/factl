@@ -133,23 +133,23 @@ factl profile set bs \
 
 This creates `~/.factl/profiles.yaml` and sets your profile as active.
 
-### 4. Deploy common items to your personal workspace
-
-Common items are Fabric artifacts like Notebooks, Environments, and Spark Job Definitions that live under `fabric/com/`:
-
-```bash
-factl self deploy com
-```
-
-This publishes all items from `fabric/com/` to your personal workspace using the parameter file configured in `project.yaml`.
-
-### 5. Deploy control assets and workflows
+### 4. Deploy control assets to your personal workspace
 
 Control assets (dbt models, configuration files) are uploaded to the control Lakehouse (`LH_CTL`) in your workspace:
 
 ```bash
 factl self deploy ctl --auto-create
 ```
+
+### 5. Deploy common items and orchestration
+
+Deploy common items:
+
+```bash
+factl self deploy com
+```
+
+This publishes all items from `fabric/com/` to your personal workspace using the parameter file configured in `project.yaml`.
 
 Orchestration compiles your workflow YAML into Fabric DataPipelines and deploys them:
 

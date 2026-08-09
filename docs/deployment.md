@@ -24,6 +24,8 @@ Ensure you have:
 3. Fabric items in `fabric/com/` (for common deploy)
 4. Workflow YAML in the configured workflow control folder (default: `controls/workflows/`; see `project.yaml`)
 
+Order matters when deploying multiple asset types: deploy **control** assets first (dbt models and profiles), then **common** items, then **orchestration**, and finally **database** scripts — `ctl → com → orc → db`.
+
 ### Deploy common items
 
 ```bash
@@ -113,18 +115,16 @@ The environment name (`dev`, `test`, `prd`) must match a key under `targets` in 
 
 ### Full command forms
 
-Shorthand and full forms are equivalent:
+Shared deploy commands always use the environment-first form. Shorthand and full resource names are equivalent:
 
-| Shorthand | Full form |
+| Shorthand | Full resource name |
 |---|---|
-| `factl dev deploy com` | `factl deploy com dev` |
-| `factl dev deploy common` | `factl deploy common dev` |
-| `factl dev deploy orc` | `factl deploy orc dev` |
-| `factl dev deploy orchestration` | `factl deploy orchestration dev` |
-| `factl dev deploy ctl` | `factl deploy ctl dev` |
-| `factl dev deploy control` | `factl deploy control dev` |
-| `factl dev deploy db` | `factl deploy db dev` |
-| `factl dev deploy database` | `factl deploy database dev` |
+| `factl dev deploy com` | `factl dev deploy common` |
+| `factl dev deploy orc` | `factl dev deploy orchestration` |
+| `factl dev deploy ctl` | `factl dev deploy control` |
+| `factl dev deploy db` | `factl dev deploy database` |
+
+The `factl deploy <resource> <env>` form is not supported — the CLI requires the environment before the resource.
 
 ### Creating control Lakehouse in shared workspace
 
@@ -177,6 +177,7 @@ factl self pull feature/my-changes
 # 3. Edit workflow YAML and Fabric items locally
 
 # 4. Deploy changes to your personal workspace
+factl self deploy ctl --auto-create
 factl self deploy com
 factl self deploy orc
 
@@ -186,6 +187,7 @@ factl self deploy orc
 factl self push feature/my-changes --comment "Added new ingest workflow"
 
 # 7. Create PR, merge, and deploy to shared environments
+factl dev deploy ctl
 factl dev deploy com
 factl dev deploy orc
 ```

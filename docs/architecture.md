@@ -204,7 +204,7 @@ Executes SQL scripts from `controls/database/` against a metadata SQL database. 
 
 ### Shared deployment flow
 
-1. Merge to shared branch (e.g., `main`)
+1. Merge to the shared branch (repo-defined, e.g., `main` or a `dev` trunk) — feature branches are cut from it
 2. `factl <env> deploy com|orc|ctl|db` — deploys to shared workspace
 3. Promotion: `dev` → `test` → `prd`
 

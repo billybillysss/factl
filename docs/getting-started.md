@@ -174,16 +174,16 @@ Create parameter files for environment-specific replacement of IDs (workspace ID
 
 ## Step 4: Deploy to your personal common workspace
 
-Deploy common items first:
-
-```bash
-factl self deploy com
-```
-
-Deploy control assets (creates the control Lakehouse if needed):
+Deploy control assets first (creates the control Lakehouse if needed):
 
 ```bash
 factl self deploy ctl --auto-create
+```
+
+Deploy common items:
+
+```bash
+factl self deploy com
 ```
 
 Deploy orchestration (compiles workflows and deploys processors):
@@ -209,9 +209,9 @@ You should see:
 Once your changes work in your personal workspace, deploy to a shared environment:
 
 ```bash
+factl dev deploy ctl
 factl dev deploy com
 factl dev deploy orc
-factl dev deploy ctl
 ```
 
 This uses the workspace IDs and settings from `.config/.factl/targets.yaml`.
