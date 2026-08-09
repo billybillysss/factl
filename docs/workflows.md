@@ -42,24 +42,34 @@ workflows:
 | `description` | No | Description shown in Fabric |
 | `schedules` | No | List of schedule definitions |
 | `processors` | Yes | List of processor references |
+| `params` | No | Workflow-level parameters (become top-level DataPipeline parameters) |
+| `notification_groups` | No | List of notification group names for the pipeline |
 
 ### Schedule
 
-Schedules are defined with a 5-field cron expression. The framework auto-converts it to the appropriate Fabric-native schedule at deploy time.
+Each schedule entry is defined either natively (`schedule_type` + type-specific fields) or as a 5-field cron expression (`cron_expression`) that the framework auto-converts to the appropriate Fabric-native schedule at deploy time. Both forms are supported; you can mix them within a workflow.
 
 | Field | Required | Description |
 |---|---|---|
-| `cron_expression` | Yes | 5-field cron expression (`minute hour day month dow`) |
-| `enabled` | No | Whether the schedule is active (default: false) |
-| `start_datetime` | No | ISO 8601 start datetime |
-| `end_datetime` | No | ISO 8601 end datetime |
-| `local_time_zone_id` | No | Timezone ID (e.g., `Eastern Standard Time`) |
+| `enabled` | Yes | Whether the schedule is active (`true`/`false`) |
+| `schedule_type` | Yes (unless `cron_expression` is used) | `cron`, `daily`, `weekly`, or `monthly` |
+| `cron_expression` | Yes (unless `schedule_type` is used) | 5-field cron expression (`minute hour day month dow`) |
+| `times` | For `daily`/`weekly`/`monthly` | List of `HH:MM` times (at most 100) |
+| `interval` | For `cron` | Interval in minutes (1–5,270,400) |
+| `weekdays` | For `weekly` | Fabric weekday names (at most 7) |
+| `recurrence` | For `monthly` | Month step 1–12 |
+| `occurrence` | For `monthly` | `occurrenceType` of `DayOfMonth` (with `dayOfMonth` 1–31) or `OrdinalWeekday` (with `weekIndex` `First`–`Fifth` and `WeekDay`) |
+| `start_datetime` | No | ISO 8601 start datetime (default: `2025-01-01T00:00:00Z`) |
+| `end_datetime` | No | ISO 8601 end datetime (default: `2099-12-31T00:00:00Z`) |
+| `local_time_zone_id` | No | Timezone ID (default: `Eastern Standard Time`) |
+
+`start_datetime` must be earlier than `end_datetime`. When a `cron_expression` is provided, the framework fills in `schedule_type` and the type-specific fields automatically (multi-entry expansions, e.g. monthly on the 1st and 15th, are applied by the workflow loader).
 
 Schedules are converted to Fabric-compatible schedule JSON during orchestration deployment. The `force_disable_schedules` setting in profiles or targets can override the `enabled` field.
 
 ### Cron expressions
 
-All schedules use a standard 5-field cron expression via `cron_expression`. The framework auto-converts it to the appropriate Fabric-native schedule type at deploy time:
+Any schedule can be expressed with a standard 5-field cron expression. The framework auto-converts it to the appropriate Fabric-native schedule type at deploy time:
 
 ```yaml
 schedules:
@@ -84,7 +94,7 @@ Supported conversions:
 | `@daily` | `Daily` at midnight |
 | `@hourly` | `Cron` interval 60 minutes |
 
-Cron expressions that cannot be mapped to a Fabric schedule produce a clear error: month-restricted patterns, day-of-month + day-of-week OR semantics, last-weekday markers, and sub-6-field expressions.
+Cron expressions that cannot be mapped to a Fabric schedule produce a clear error: expressions that are not exactly 5 fields, `L`/`W` markers, month-restricted patterns, day-of-month + day-of-week OR semantics, and arbitrary month selections (Fabric can only express "every N months" starting from month one).
 
 ### Processor
 
@@ -92,6 +102,7 @@ Cron expressions that cannot be mapped to a Fabric schedule produce a clear erro
 |---|---|---|
 | `name` | Yes | Name of the Fabric item (Notebook or DataPipeline) |
 | `alias` | Yes | Unique alias within this workflow, used for dependency references |
+| `item_type` | No | Fabric item type (e.g., `Notebook`, `DataPipeline`); defaults to inference from the deployed item |
 | `depends_on` | No | List of processor aliases this processor depends on |
 | `params` | No | Key-value parameters passed to the processor |
 
