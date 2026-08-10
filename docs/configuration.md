@@ -10,8 +10,8 @@ Reference for all factl configuration files, settings, and precedence rules.
 | `project.yaml` | `.config/.factl/` | Per-repository | `factl config init` |
 | `targets.yaml` | `.config/.factl/` | Per-repository | `factl config init` |
 | `variables.yaml` | `.config/.factl/` | Per-repository | `factl config init` |
-| Parameter files | `fabric/parameters/` | Per-repository | Manual |
-| Workflow definitions | `{control.local_path}/{workflow.control_folder}/` (default: `controls/workflows/`) | Per-repository | Manual |
+| Parameter files | Repo-defined (configured in `project.yaml`) | Per-repository | Manual |
+| Workflow definitions | Repo-defined (configured in `project.yaml`) | Per-repository | Manual |
 
 ## profiles.yaml (`~/.factl/`)
 
@@ -51,6 +51,8 @@ active: bs
 | `fabric_cicd.enabled_features` | No | fabric-cicd feature flags for this profile |
 | `aliases` | No | Additional identifiers for `factl profile use` |
 
+`factl profile use <selector>` matches against a set of aliases derived automatically from each profile — the profile id, the workspace GUID, the display name (with and without spaces), and the display name's initials — plus any explicit `aliases` entries. A selector that matches more than one profile is rejected as ambiguous.
+
 Commands:
 * `factl profile set <id> ...` — create or update a profile
 * `factl profile list` — list all profiles
@@ -87,6 +89,7 @@ deployment:
   control:
     local_path: controls
     includes:
+      - processors/processor1/config1.yaml
       - dbt/models
       - dbt/dbt_project.yml
 ```
@@ -94,7 +97,7 @@ deployment:
 | Field | Description |
 |---|---|
 | `local_path` | Repo-relative root for control assets deployed to Lakehouse |
-| `includes` | Default paths to deploy when no `--folder` filter is passed |
+| `includes` | Default paths to deploy when no `--folder` filter is passed. Each entry may be a folder, file path, or glob pattern, relative to `local_path` |
 
 ### deployment.database (optional)
 
@@ -109,7 +112,7 @@ deployment:
 | Field | Description |
 |---|---|
 | `local_path` | Repo-relative root for SQL scripts |
-| `includes` | Default paths when no `--include` filter is passed |
+| `includes` | Default paths when no `--include` filter is passed. Each entry may be a folder, `.sql` file path, or glob pattern, relative to `local_path` |
 
 ### deployment.common
 
@@ -128,7 +131,7 @@ deployment:
       - Environment
       - Lakehouse
       - SparkJobDefinition
-      # ... all supported Fabric item types
+      # ... remaining item types
 ```
 
 | Field | Description |
@@ -164,9 +167,10 @@ deployment:
 | `workflow.workspace_folder` | Workspace folder for published workflow items |
 | `workflow.template.path` | Optional custom template directory path |
 
+
 ## targets.yaml (`.config/.factl/`)
 
-Shared environment common workspace IDs and settings. These are the workspaces factl deploys orchestration (processors, workflows, common items, control Lakehouse) to. Data workspaces (where medallion Lakehouses and Warehouses live) are not configured here — they are referenced by processors through parameter files (`fabric/parameters/`).
+Shared environment common workspace IDs and settings. These are the workspaces factl deploys orchestration (processors, workflows, common items, control Lakehouse) to. Data workspaces (where medallion Lakehouses and Warehouses live) are not configured here — they are referenced by processors through parameter files configured in `project.yaml`.
 
 ```yaml
 version: 1

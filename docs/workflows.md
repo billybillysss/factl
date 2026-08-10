@@ -4,7 +4,7 @@ How to author workflow definitions in YAML.
 
 ## Workflow file structure
 
-Workflow definitions live under `{deployment.control.local_path}/{deployment.orchestration.workflow.control_folder}/` (default: `controls/workflows/`). These paths are configured in `project.yaml`. Each file can contain one or more workflows under the top-level `workflows` key:
+Workflow definitions live under the path configured by `deployment.control.local_path` and `deployment.orchestration.workflow.control_folder` in `project.yaml` (e.g. `controls/workflows`). Each file can contain one or more workflows under the top-level `workflows` key:
 
 ```yaml
 workflows:
@@ -42,6 +42,7 @@ workflows:
 | `description` | No | Description shown in Fabric |
 | `schedules` | No | List of schedule definitions |
 | `processors` | Yes | List of processor references |
+| `params` | No | Workflow-level parameters (become top-level DataPipeline parameters) |
 
 ### Schedule
 
@@ -49,11 +50,13 @@ Schedules are defined with a 5-field cron expression. The framework auto-convert
 
 | Field | Required | Description |
 |---|---|---|
+| `enabled` | Yes | Whether the schedule is active (`true`/`false`) |
 | `cron_expression` | Yes | 5-field cron expression (`minute hour day month dow`) |
-| `enabled` | No | Whether the schedule is active (default: false) |
-| `start_datetime` | No | ISO 8601 start datetime |
-| `end_datetime` | No | ISO 8601 end datetime |
-| `local_time_zone_id` | No | Timezone ID (e.g., `Eastern Standard Time`) |
+| `start_datetime` | No | ISO 8601 start datetime (default: `2025-01-01T00:00:00Z`) |
+| `end_datetime` | No | ISO 8601 end datetime (default: `2099-12-31T00:00:00Z`) |
+| `local_time_zone_id` | No | Timezone ID (default: `Eastern Standard Time`) |
+
+`start_datetime` must be earlier than `end_datetime`. Multi-entry cron expansions (e.g. monthly on the 1st and 15th) result in multiple schedule entries automatically.
 
 Schedules are converted to Fabric-compatible schedule JSON during orchestration deployment. The `force_disable_schedules` setting in profiles or targets can override the `enabled` field.
 
@@ -84,7 +87,54 @@ Supported conversions:
 | `@daily` | `Daily` at midnight |
 | `@hourly` | `Cron` interval 60 minutes |
 
-Cron expressions that cannot be mapped to a Fabric schedule produce a clear error: month-restricted patterns, day-of-month + day-of-week OR semantics, last-weekday markers, and sub-6-field expressions.
+Cron expressions that cannot be mapped to a Fabric schedule produce a clear error: expressions that are not exactly 5 fields, `L`/`W` markers, month-restricted patterns, day-of-month + day-of-week OR semantics, and arbitrary month selections (Fabric can only express "every N months" starting from month one).
+
+The conversion flow:
+
+```mermaid
+flowchart TB
+
+    INPUT["Cron Expression<br/><code>cron_expression</code>"]
+
+    VALIDATE["Validate<br/>syntax + supported constructs"]
+
+    DETECT{"Detect<br/>schedule pattern"}
+
+    subgraph TYPES["Fabric-native schedule type"]
+        direction LR
+        CRON["Cron<br/>interval-based"]
+        DAILY["Daily<br/>time(s) each day"]
+        WEEKLY["Weekly<br/>selected weekdays"]
+        MONTHLY["Monthly<br/>day / ordinal weekday"]
+    end
+
+    OUTPUT["Fabric Schedule JSON"]
+
+    INPUT --> VALIDATE
+    VALIDATE --> DETECT
+
+    DETECT --> CRON
+    DETECT --> DAILY
+    DETECT --> WEEKLY
+    DETECT --> MONTHLY
+
+    CRON --> OUTPUT
+    DAILY --> OUTPUT
+    WEEKLY --> OUTPUT
+    MONTHLY --> OUTPUT
+
+    subgraph REJECT["Rejected patterns"]
+        direction LR
+        R1["Invalid field count"]
+        R2["L / W markers"]
+        R3["Month-restricted patterns"]
+        R4["Day-of-month + day-of-week"]
+        R5["Unsupported month selections"]
+    end
+
+    VALIDATE -.->|"reject"| REJECT
+    DETECT -.->|"no supported mapping"| REJECT
+```
 
 ### Processor
 
@@ -172,7 +222,7 @@ params:
 
 ## Processor reuse
 
-A processor is a Fabric item (Notebook or DataPipeline) deployed once to the `processors/` workspace folder. It can be referenced by name in any number of workflows with different aliases and parameters:
+A processor is a Fabric item (Notebook or DataPipeline) deployed once to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml` (e.g. `processors`). It can be referenced by name in any number of workflows with different aliases and parameters:
 
 ```yaml
 # Workflow A
@@ -274,7 +324,7 @@ After authoring a workflow YAML file, deploy it with:
 factl self deploy orc
 ```
 
-This compiles the YAML into Fabric DataPipeline JSON and publishes it to your workspace. The workflow appears under the `workflows/` folder in your workspace.
+This compiles the YAML into Fabric DataPipeline JSON and publishes it to your workspace. The workflow appears under the folder configured by `deployment.orchestration.workflow.workspace_folder` in `project.yaml` (e.g. `workflows`).
 
 To deploy to a shared environment:
 

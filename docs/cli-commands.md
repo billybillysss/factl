@@ -109,12 +109,12 @@ factl profile delete <id> [--yes] [--log-level <level>]
 
 Deploy resources to a shared environment defined in `targets.yaml`.
 
-### `factl deploy com <env>` / `factl <env> deploy com`
+### `factl <env> deploy com`
 
 Deploy common items to a shared environment.
 
 ```bash
-factl deploy com <env> \
+factl <env> deploy com \
   [--base-dir <dir>] \
   [--log-level <level>] \
   [--include-item-type <type>] \
@@ -130,12 +130,12 @@ factl deploy com <env> \
 | `--item-type` | Legacy alias for `--include-item-type` |
 | `--auth` | Auth mode override |
 
-### `factl deploy orc <env>` / `factl <env> deploy orc`
+### `factl <env> deploy orc`
 
 Deploy orchestration (workflows + processors) to a shared environment.
 
 ```bash
-factl deploy orc <env> \
+factl <env> deploy orc \
   [--base-dir <dir>] \
   [--log-level <level>] \
   [--force-disable-schedules | --allow-schedules] \
@@ -153,12 +153,12 @@ factl deploy orc <env> \
 | `--commit` | Commit workflow changes to connected Git branch |
 | `--comment` | Commit comment (max 300 chars) |
 
-### `factl deploy ctl <env>` / `factl <env> deploy ctl`
+### `factl <env> deploy ctl`
 
 Deploy control assets to a shared environment.
 
 ```bash
-factl deploy ctl <env> \
+factl <env> deploy ctl \
   [--base-dir <dir>] \
   [--log-level <level>] \
   [--dry-run] \
@@ -173,12 +173,12 @@ factl deploy ctl <env> \
 | `--folder` | Control folder filter (repeatable) |
 | `--auto-create` | Auto-create controls folder and Lakehouse |
 
-### `factl deploy db <env>` / `factl <env> deploy db`
+### `factl <env> deploy db`
 
 Deploy SQL database objects to a shared environment.
 
 ```bash
-factl deploy db <env> \
+factl <env> deploy db \
   [--base-dir <dir>] \
   [--log-level <level>] \
   [--include <path>] \
@@ -339,7 +339,7 @@ factl self generate schedule \
 | Option | Description |
 |---|---|
 | `--base-dir` | Repository root directory (default: `"."`) |
-| `--log-level` | Override FACTL_LOG_LEVEL (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `--log-level` | Override FACTL_LOG_LEVEL (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
 | `--auth` | Override auth mode (`default`, `interactive`, `cli`) |
 
 ## Environment variables
