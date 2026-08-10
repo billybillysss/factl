@@ -4,65 +4,57 @@ A CLI tool for deploying and orchestrating data pipelines in Microsoft Fabric us
 
 ## What is this?
 
-factl is a **declarative data orchestration framework** for Microsoft Fabric. Instead of building pipelines by clicking through the Fabric UI, you define processors and workflows in YAML, version them in Git, and factl handles compilation, deployment, and scheduling. Orchestration runs in a common workspace; medallion Lakehouses and Warehouses live in separate data workspaces, connected through parameterized references.
+factl is a **declarative data orchestration framework** for Microsoft Fabric. Instead of building pipelines by clicking through the Fabric UI, you define processors and workflows in YAML, version them in Git, and factl handles compilation, deployment, and scheduling. Orchestration runs in a common workspace; medallion Lakehouses and Warehouses live in separate data workspaces, resolved through workflow parameters or processor-side environment logic.
 
 ### Core model: processors and workflows
 
 factl separates your data platform into two layers:
 
-**Processors** are reusable building blocks — Notebooks, DataPipelines, or any Fabric item type. You deploy each processor once, then reference it by name in any number of workflows. Per-workflow parameters control what it does with no processor code changes.
+**Processors** are reusable building blocks — typically Notebooks or DataPipelines, and potentially other item types if they can be triggered through a DataPipeline activity with a matching template. You deploy each processor once, then reference it by name in any number of workflows. Per-workflow parameters control what it does with no processor code changes.
 
 **Workflows** are YAML files that declare which processors run, in what order, on what schedule, and with what parameters. factl compiles the YAML into Fabric-native DataPipeline definitions and deploys them.
 
-```
-Processor items        Workflow YAML
-(Notebooks,            (references processors
- DataPipelines,         by name with params
- custom types)          + schedule)
+```mermaid
+flowchart LR
 
-      │                      │
-      │         ┌────────────▼──────────┐
-      │         │   Framework Compiler  │
-      │         └────────────┬──────────┘
-      │                      │
-      ▼                      ▼
-┌──────────────────────────────────────┐
-│          Common Workspace            │
-│  (processors, workflows,            │
-│   control Lakehouse,                 │
-│   common items)                      │
-│  ┌─────────────┐ ┌────────────────┐  │
-│  │ processors  │ │   workflows    │  │
-│  └─────────────┘ └────────────────┘  │
-└────────────┬─────────────────────────┘
-             │  workspace_id / lakehouse_id
-             │  via params + parameter files
-             ▼
-┌──────────────────────────────────────┐
-│          Data Workspace(s)            │
-│  (medallion Lakehouses, Warehouses,   │
-│   SQL databases — actual data)        │
-│  ┌──────┐ ┌──────┐ ┌──────┐          │
-│  │ LH_DP│ │ LH_DP│ │ LH_DP│          │
-│  │ .brz │ │ .slv │ │ .gld │          │
-│  └──────┘ └──────┘ └──────┘          │
-└──────────────────────────────────────┘
+    subgraph CONFIG["Git / Configuration"]
+        YAML["Workflow YAML<br/>orchestration definition"]
+        PARAMS["Parameter Files<br/>environment bindings"]
+    end
+
+    FACTL["factl<br/>compile + deploy"]
+
+    subgraph COMMON["Common Workspace"]
+        WF["Compiled Workflows"]
+        PROC["Processors"]
+        CTL["Control Assets"]
+    end
+
+    subgraph DATA["Data Workspace(s)"]
+        ANALYTICS["Lakehouses · Warehouses · SQL"]
+    end
+
+    YAML --> FACTL
+    PARAMS --> FACTL
+    FACTL --> COMMON
+    WF --> PROC
+    PROC -->|"workflow params or processor-side resolution"| ANALYTICS
 ```
 
-**The problem it solves:** Fabric pipelines built through the UI have no single source of truth, drift between environments, and can't be reviewed or versioned. factl moves the orchestration layer — processors, workflows, control assets, common items, and metadata — into Git, where it can be versioned, reviewed, and deployed consistently. The data itself (Lakehouses, Warehouses, SQL databases) lives in separate data workspaces, accessed by processors through parameterized workspace and Lakehouse IDs.
+**The problem it solves:** Fabric pipelines built through the UI have no single source of truth, drift between environments, and can't be reviewed or versioned. factl moves the orchestration layer — processors, workflows, control assets, common items, and metadata — into Git, where it can be versioned, reviewed, and deployed consistently. The data itself (Lakehouses, Warehouses, SQL databases) lives in separate data workspaces, accessed by processors through environment-specific references passed via workflow parameters (workspace IDs, lakehouse IDs, endpoints, etc.) or resolved internally from a selector such as `env`.
 
-**Where it fits:** factl sits between your Git repository and your Fabric workspaces. You write YAML, commit to Git, and factl handles the rest — compilation, parameterization, deployment, and schedule management. factl deploys orchestration (processors, workflows, common items) to a **common workspace**, while your data Lakehouses and Warehouses live in separate **data workspaces** — referenced by processors through configurable workspace and Lakehouse IDs.
+**Where it fits:** factl sits between your Git repository and your Fabric workspaces. You write YAML, commit to Git, and factl handles the rest — compilation, parameterization, deployment, and schedule management. factl deploys orchestration (processors, workflows, common items) to a **common workspace**, while your data Lakehouses and Warehouses live in separate **data workspaces** — resolved by processors through environment-specific target settings.
 
 **Who it's for:** Data engineers and platform teams building ELT/ETL pipelines in Microsoft Fabric who want repeatable, reviewable, and automated deployments.
 
 ## Why use it?
 
 * **No framework to build from scratch.** factl provides a complete deployment and orchestration system — workflow compilation, parameter management, environment promotion, and schedule control are all built in.
-* **Reusable processors with declarative parameters.** Processors (Notebooks, DataPipelines, or any Fabric item type with a custom template) are deployed once and composed into workflows by name. Each workflow configures the processor through `params` — the same processor behaves differently per workflow with no code changes.
-* **Write once, deploy anywhere.** Environment differences (workspace IDs, Lakehouse IDs, connection strings) live in configuration files, not in pipeline code. The same workflow YAML deploys to dev, test, and prod.
+* **Reusable processors with declarative parameters.** Processors (typically Notebooks or DataPipelines, or other item types triggered through a DataPipeline activity with a matching template) are deployed once and composed into workflows by name. Each workflow configures the processor through `params` — the same processor behaves differently per workflow with no code changes.
+* **Write once, deploy anywhere.** Environment differences (workspace IDs, Lakehouse IDs, endpoints, connection settings) live in configuration files, not in pipeline code. The same workflow YAML deploys to dev, test, and prod.
 * **Standardized pipeline development.** Every workflow follows the same declarative format. New team members can understand a pipeline by reading its YAML file.
 * **Personal workspace isolation.** Each developer tests changes in their own Fabric workspace using `factl self` commands. Shared environments are never touched during development.
-* **Data workspaces separate from orchestration.** Medallion Lakehouses, Warehouses, and SQL databases live in dedicated data workspaces — isolated from the common workspace where processors and workflows run. Processors reach data workspaces through parameterized workspace and Lakehouse IDs.
+* **Data workspaces separate from orchestration.** Medallion Lakehouses, Warehouses, and SQL databases live in dedicated data workspaces — isolated from the common workspace where processors and workflows run. Processors reach data workspaces either through environment-specific references passed as workflow parameters, or by resolving the target internally from a selector such as `env`.
 * **Fail early, fix locally.** Workflow YAML is validated at parse time — dependency cycles, missing references, and config errors are caught before anything touches Fabric.
 * **Schedules managed declaratively.** Enable or disable schedules per environment. Schedule definitions live in the same YAML file as the workflow.
 
@@ -152,7 +144,7 @@ Deploy common items:
 factl self deploy com
 ```
 
-This publishes all items from the directory configured by `deployment.common.local_path` in `project.yaml` to your personal workspace. Workspace and Lakehouse IDs are replaced via the parameter file configured by `deployment.common.parameter_path` in `project.yaml`.
+This publishes all items from the directory configured by `deployment.common.local_path` in `project.yaml` to your personal workspace. Environment-specific values are substituted via the parameter file configured by `deployment.common.parameter_path` in `project.yaml`.
 
 Orchestration compiles your workflow YAML into Fabric DataPipelines and deploys them:
 
@@ -167,7 +159,7 @@ Open your personal workspace in the Fabric portal. You should see:
 * Fabric items deployed to the workspace (from the directory configured by `deployment.common.local_path` in `project.yaml`)
 * Control assets uploaded to the control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`)
 * Compiled DataPipelines under the folder configured by `deployment.orchestration.workflow.workspace_folder` in `project.yaml`
-* Data Lakehouses referenced by processors may live in a separate data workspace, wired via parameter files
+* Data Lakehouses referenced by processors may live in a separate data workspace, resolved via workflow parameters or parameter files
 
 ### Example workflow
 
@@ -212,30 +204,24 @@ The processors themselves (`NB_IngestTlcTripsToBronze`, `NB_IngestNoaaWeatherToB
 
 ## How it works
 
-```
-┌──────────────┐     ┌──────────────┐     ┌───────────────────┐
-│ Workflow YAML │ ──▶ │  Framework   │ ──▶ │ Fabric DataPipeline│
-│ (under your   │     │  Compiler    │     │ JSON definitions   │
-│  control dir) │     └──────────────┘     └───────────────────┘
-└──────────────┘                                   │
-                    ┌──────────────┐               │
-                    │ fabric-cicd  │ ◀─────────────┘
-                    │ publish      │
-                    └──────────────┘
-                           │
-                    ┌──────▼──────┐     ┌──────────────────┐
-                    │   Common    │     │  Data Workspace  │
-                    │  Workspace  │ ──▶ │ (Lakehouses,     │
-                    │ (processors,│     │  Warehouses,     │
-                    │  workflows, │     │  SQL databases)  │
-                    │  control LH)│     │                  │
-                    └─────────────┘     └──────────────────┘
+```mermaid
+flowchart LR
+
+    YAML["Workflow YAML<br/>(under your control dir)"]
+    COMPILER["Framework Compiler"]
+    JSON["Fabric DataPipeline<br/>JSON definitions"]
+    PUBLISH["fabric-cicd<br/>publish"]
+    COMMON["Common Workspace<br/>(processors, workflows, control LH)"]
+    DATA["Data Workspace<br/>(Lakehouses, Warehouses,<br/>SQL databases)"]
+
+    YAML --> COMPILER --> JSON --> PUBLISH --> COMMON
+    COMMON -->|"workflow params or processor-side resolution"| DATA
 ```
 
-1. **Deploy processors.** Fabric items (Notebooks, DataPipelines, or items backed by custom templates) are deployed to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`. Each processor is a reusable building block — deployed once, used by many workflows.
+1. **Deploy processors.** Fabric items that can be triggered through DataPipeline activities (typically Notebooks or DataPipelines) are deployed to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`. Each processor is a reusable building block — deployed once, used by many workflows.
 2. **Author workflows.** You write a workflow YAML file under the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml` (relative to `deployment.control.local_path`) that references processors by name with per-workflow parameters, dependencies, and schedules. The same processor can appear in multiple workflows with different params.
 3. **Compile.** `factl self deploy orc` loads the YAML, validates it with Pydantic, renders Jinja2 template variables, and compiles the workflow into Fabric DataPipeline JSON using built-in activity templates.
-4. **Publish.** The compiled JSON is published to the common workspace via the fabric-cicd SDK. Parameters are environment-aware — your workspace gets the right workspace and Lakehouse IDs (for both the common and data workspaces) without changing the workflow definition.
+4. **Publish.** The compiled JSON is published to the common workspace via the fabric-cicd SDK. Parameters are environment-aware — your workspace gets the right environment-specific target values (workspace IDs, lakehouse IDs, endpoints, etc.) without changing the workflow definition.
 5. **Schedule.** Schedule definitions from the YAML are converted to Fabric schedule JSON and deployed alongside the pipeline.
 
 Four deployment types are supported:
