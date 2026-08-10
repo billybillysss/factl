@@ -89,6 +89,53 @@ Supported conversions:
 
 Cron expressions that cannot be mapped to a Fabric schedule produce a clear error: expressions that are not exactly 5 fields, `L`/`W` markers, month-restricted patterns, day-of-month + day-of-week OR semantics, and arbitrary month selections (Fabric can only express "every N months" starting from month one).
 
+The conversion flow:
+
+```mermaid
+flowchart TB
+
+    INPUT["Cron Expression<br/><code>cron_expression</code>"]
+
+    VALIDATE["Validate<br/>syntax + supported constructs"]
+
+    DETECT{"Detect<br/>schedule pattern"}
+
+    subgraph TYPES["Fabric-native schedule type"]
+        direction LR
+        CRON["Cron<br/>interval-based"]
+        DAILY["Daily<br/>time(s) each day"]
+        WEEKLY["Weekly<br/>selected weekdays"]
+        MONTHLY["Monthly<br/>day / ordinal weekday"]
+    end
+
+    OUTPUT["Fabric Schedule JSON"]
+
+    INPUT --> VALIDATE
+    VALIDATE --> DETECT
+
+    DETECT --> CRON
+    DETECT --> DAILY
+    DETECT --> WEEKLY
+    DETECT --> MONTHLY
+
+    CRON --> OUTPUT
+    DAILY --> OUTPUT
+    WEEKLY --> OUTPUT
+    MONTHLY --> OUTPUT
+
+    subgraph REJECT["Rejected patterns"]
+        direction LR
+        R1["Invalid field count"]
+        R2["L / W markers"]
+        R3["Month-restricted patterns"]
+        R4["Day-of-month + day-of-week"]
+        R5["Unsupported month selections"]
+    end
+
+    VALIDATE -.->|"reject"| REJECT
+    DETECT -.->|"no supported mapping"| REJECT
+```
+
 ### Processor
 
 | Field | Required | Description |

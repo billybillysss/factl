@@ -89,6 +89,7 @@ deployment:
   control:
     local_path: controls
     includes:
+      - processors/processor1/config1.yaml
       - dbt/models
       - dbt/dbt_project.yml
 ```

@@ -50,31 +50,15 @@ The framework auto-converts cron expressions to Fabric-native schedule types (`c
 
 ## Compilation pipeline
 
-```
-{control.local_path}/{workflow.control_folder}/*.yaml
-        │
-        ▼
-┌────────────────────┐
-│   WorkflowLoader   │  Parses YAML → Pydantic Workflow model
-└──────────┬─────────┘
-         │
-         ▼
-┌────────────────────┐
-│                    │  Compiles Workflow → DataPipeline JSON
-│  FrameworkCompiler │  Uses Jinja2 templates for each activity type
-│                    │  (start.json, Notebook.json, DataPipeline.json, end.json)
-└────────┬───────────┘
-         │
-         ▼
-┌─────────────────────┐
-│ FrameworkRepoWriter │  Writes compiled JSON + schedules to disk
-└────────┬────────────┘
-         │
-         ▼
-┌───────────────────┐
-│    fabric-cicd    │  Publishes JSON to common workspace
-│    publish_all    │  Handles create/update/skip logic
-└───────────────────┘
+```mermaid
+flowchart LR
+
+    YAML(["Workflow YAML"])
+    CLI(["factl CLI<br/>Compile"])
+    FABRIC(["Fabric<br/>Publish"])
+    WS(["Common Workspace ✓"])
+
+    YAML --> CLI --> FABRIC --> WS
 ```
 
 ### Template system
@@ -116,28 +100,36 @@ factl expects a two-workspace layout per environment:
 - Common Fabric items (Environments, Spark Job Definitions, etc.)
 - The control Lakehouse (configured by `deployment.common.control.lakehouse.name` in `project.yaml`) holding dbt models, profiles, and configuration files
 
-**Data workspace(s)** — where medallion Lakehouses, Warehouses, and SQL databases that hold your analytical data live. factl does **not** deploy to these workspaces; they are referenced by processors through:
-- `workspace_id` and `lakehouse_id` parameters passed via workflow `params`
-- parameter files (configured by `deployment.common.parameter_path` and `deployment.orchestration.parameter_path` in `project.yaml`), which substitute workspace and Lakehouse IDs per environment at deploy time
-- dbt profiles under the directory configured by `deployment.control.local_path` in `project.yaml`, which point at the data workspace and Lakehouse
+**Data workspace(s)** — where medallion Lakehouses, Warehouses, SQL databases, and other analytical data stores live. factl does **not** deploy to these workspaces. Instead, environment-specific targets are resolved in two common ways:
+- Pass environment-specific values through workflow `params` — workspace IDs, lakehouse IDs, item names, endpoints, database names, or other connection settings
+- Pass a higher-level selector such as `env` and let the processor resolve the correct data store internally (e.g. connect to the dev store when `env=dev`)
+- Parameter files (configured by `deployment.common.parameter_path` and `deployment.orchestration.parameter_path` in `project.yaml`) substitute environment-specific values at deploy time
 
-```
- ┌──────────────────────────────────────┐
- │          Common Workspace            │
- │  (processors, workflows,          │
- │   control Lakehouse,                │
- │   common items)                      │
- │  com_workspace_id in targets.yaml    │
- └────────────┬─────────────────────────┘
-              │  workspace_id / lakehouse_id
-              │  via params + parameter files
-              ▼
- ┌──────────────────────────────────────┐
- │         Data Workspace(s)            │
- │  (medallion Lakehouses, Warehouses,  │
- │   SQL databases — actual data)       │
- │  Not a factl deployment target       │
- └──────────────────────────────────────┘
+```mermaid
+flowchart LR
+
+    subgraph CONFIG["Git / Configuration"]
+        YAML["Workflow YAML<br/>orchestration definition"]
+        PARAMS["Parameter Files<br/>environment bindings"]
+    end
+
+    FACTL["factl<br/>compile + deploy"]
+
+    subgraph COMMON["Common Workspace"]
+        WF["Compiled Workflows"]
+        PROC["Processors"]
+        CTL["Control Assets"]
+    end
+
+    subgraph DATA["Data Workspace(s)"]
+        ANALYTICS["Lakehouses · Warehouses · SQL"]
+    end
+
+    YAML --> FACTL
+    PARAMS --> FACTL
+    FACTL --> COMMON
+    WF --> PROC
+    PROC -->|"workflow params or processor-side resolution"| ANALYTICS
 ```
 
 Separating data from orchestration improves security isolation, lifecycle independence, and blast-radius containment. Processors run in the common workspace but read and write data workspaces via cross-workspace OneLake references.
@@ -150,7 +142,7 @@ factl manages four categories of Fabric artifacts:
 |---|---|---|---|
 | **Common** | Configured by `deployment.common.local_path` in `project.yaml` | Common workspace root (via fabric-cicd) | `deploy com` |
 | **Orchestration** | Workflow YAML (compiled) + processor items | Common workspace (deployed to the folders configured by `deployment.orchestration.workflow.workspace_folder` and `deployment.orchestration.processor.workspace_folder`) | `deploy orc` |
-| **Control** | Configured by `deployment.control.local_path` in `project.yaml` (config files, dbt models) | Control Lakehouse in the common workspace (configured by `deployment.common.control.lakehouse.name` in `project.yaml`, via OneLake fsspec) | `deploy ctl` |
+| **Control** | Configured by `deployment.control.local_path` in `project.yaml` (control assets) | Control Lakehouse in the common workspace (configured by `deployment.common.control.lakehouse.name` in `project.yaml`, via OneLake fsspec) | `deploy ctl` |
 | **Database** | Configured by `deployment.database.local_path` in `project.yaml` (SQL scripts) | Metadata SQL database | `deploy db` |
 
 ### Common deployment
@@ -176,22 +168,23 @@ Executes SQL scripts from the directory configured by `deployment.database.local
 
 ## Environment model
 
-```
-┌─────────────────────────────────────────┐
-│            Personal Workspace           │
-│  (factl self deploy ...)                │
-│  ~/.factl/profiles.yaml                 │
-│  Isolated development and testing       │
-└─────────────────────────────────────────┘
-              │ factl self push
-              ▼
-┌─────────────────────────────────────────┐
-│           Shared Workspaces             │
-│  dev → test → prd                       │
-│  (factl dev deploy ..., etc.)           │
-│  .config/.factl/targets.yaml            │
-│  .config/.factl/variables.yaml          │
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TB
+
+    subgraph PERSONAL["Personal Workspace"]
+        P1["factl self deploy com|orc|ctl|db"]
+        P2["~/.factl/profiles.yaml"]
+        P3["Isolated development and testing"]
+    end
+
+    subgraph SHARED["Shared Workspaces"]
+        S1["dev → test → prd"]
+        S2["factl &lt;env&gt; deploy com|orc|ctl|db"]
+        S3[".config/.factl/targets.yaml"]
+        S4[".config/.factl/variables.yaml"]
+    end
+
+    PERSONAL -->|"factl self push"| SHARED
 ```
 
 ### Personal workspace flow
