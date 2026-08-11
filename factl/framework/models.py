@@ -80,6 +80,7 @@ _CRON_META_KEYS = {
     "start_datetime",
     "end_datetime",
     "local_time_zone_id",
+    "parameters",
 }
 
 

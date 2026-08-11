@@ -54,11 +54,27 @@ Schedules are defined with a 5-field cron expression. The framework auto-convert
 | `cron_expression` | Yes | 5-field cron expression (`minute hour day month dow`) |
 | `start_datetime` | No | ISO 8601 start datetime (default: `2025-01-01T00:00:00Z`) |
 | `end_datetime` | No | ISO 8601 end datetime (default: `2099-12-31T00:00:00Z`) |
-| `local_time_zone_id` | No | Timezone ID (default: `Eastern Standard Time`) |
+| `local_time_zone_id` | No | Windows timezone ID (default: `UTC`) |
+| `parameters` | No | Schedule job parameters using Fabric `VariableReference` values |
 
 `start_datetime` must be earlier than `end_datetime`. Multi-entry cron expansions (e.g. monthly on the 1st and 15th) result in multiple schedule entries automatically.
 
 Schedules are converted to Fabric-compatible schedule JSON during orchestration deployment. The `force_disable_schedules` setting in profiles or targets can override the `enabled` field.
+
+Schedule parameters support the current Fabric Git schedule schema shape:
+
+```yaml
+schedules:
+  - enabled: true
+    cron_expression: "0 6 * * *"
+    local_time_zone_id: UTC
+    parameters:
+      - name: env
+        type: VariableReference
+        value: "@pipeline().parameters.env"
+```
+
+Workflow YAML is rendered with Jinja2 before validation, so schedule parameter values can use the same template variables as other workflow fields.
 
 ### Cron expressions
 

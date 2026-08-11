@@ -148,6 +148,82 @@ class TestWorkflowCronExpansion:
             assert s.enabled is False
             assert s.start_datetime == "2024-06-01T00:00:00Z"
 
+    def test_expansion_preserves_parameters(self):
+        w = Workflow(
+            name="test",
+            schedules=[
+                {
+                    "enabled": True,
+                    "cron_expression": "0 10 1,15 * *",
+                    "parameters": [
+                        {
+                            "name": "env",
+                            "type": "VariableReference",
+                            "value": "@pipeline().parameters.env",
+                        }
+                    ],
+                }
+            ],
+        )
+        assert len(w.schedules) == 2
+        for s in w.schedules:
+            assert s.parameters is not None
+            assert s.parameters[0].model_dump() == {
+                "name": "env",
+                "type": "VariableReference",
+                "value": "@pipeline().parameters.env",
+            }
+
     def test_no_schedules(self):
         w = Workflow(name="test")
         assert w.schedules is None
+
+
+class TestScheduleValidation:
+    def test_default_timezone_is_utc(self):
+        s = Schedule(enabled=True, cron_expression="0 6 * * *")
+        assert s.local_time_zone_id == "UTC"
+
+    def test_invalid_timezone_errors(self):
+        with pytest.raises(ValueError, match="Invalid local_time_zone_id"):
+            Schedule(
+                enabled=True,
+                schedule_type="daily",
+                times=["06:00"],
+                local_time_zone_id="Not A Real Time Zone",
+            )
+
+    def test_accepts_schedule_parameters(self):
+        s = Schedule(
+            enabled=True,
+            schedule_type="daily",
+            times=["06:00"],
+            parameters=[
+                {
+                    "name": "env",
+                    "type": "VariableReference",
+                    "value": "{{ env_expr }}",
+                }
+            ],
+        )
+        assert s.parameters is not None
+        assert s.parameters[0].model_dump() == {
+            "name": "env",
+            "type": "VariableReference",
+            "value": "{{ env_expr }}",
+        }
+
+    def test_invalid_schedule_parameter_type_errors(self):
+        with pytest.raises(ValueError, match="Schedule parameter type"):
+            Schedule(
+                enabled=True,
+                schedule_type="daily",
+                times=["06:00"],
+                parameters=[
+                    {
+                        "name": "env",
+                        "type": "Text",
+                        "value": "dev",
+                    }
+                ],
+            )

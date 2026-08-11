@@ -58,7 +58,28 @@ class TestBuildScheduleEntry:
         cfg = entry["configuration"]
         assert cfg["startDateTime"] == "2025-01-01T00:00:00Z"
         assert cfg["endDateTime"] == "2099-12-31T00:00:00Z"
-        assert cfg["localTimeZoneId"] == "Eastern Standard Time"
+        assert cfg["localTimeZoneId"] == "UTC"
+
+    def test_schedule_parameters(self):
+        s = Schedule(
+            enabled=True,
+            cron_expression="0 12 * * *",
+            parameters=[
+                {
+                    "name": "env",
+                    "type": "VariableReference",
+                    "value": "@pipeline().parameters.env",
+                }
+            ],
+        )
+        entry = build_schedule_entry(s)
+        assert entry["configuration"]["parameters"] == [
+            {
+                "name": "env",
+                "type": "VariableReference",
+                "value": "@pipeline().parameters.env",
+            }
+        ]
 
 
 class TestBuildSchedulesFile:

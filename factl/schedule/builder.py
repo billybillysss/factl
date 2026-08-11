@@ -18,6 +18,11 @@ def build_schedule_entry(schedule: Schedule) -> dict:
         },
     }
 
+    if schedule.parameters:
+        entry["configuration"]["parameters"] = [
+            parameter.model_dump() for parameter in schedule.parameters
+        ]
+
     if schedule.schedule_type == "cron":
         entry["configuration"]["interval"] = schedule.interval
     elif schedule.schedule_type == "daily":

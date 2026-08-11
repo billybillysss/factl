@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, model_validator
 
 from factl.schedule.cron import convert_cron_to_fabric
+from factl.schedule.timezones import WINDOWS_TIME_ZONE_IDS
 
 
 SCHEDULE_TYPES = {"cron", "weekly", "daily", "monthly"}
@@ -22,6 +23,29 @@ ALLOWED_WEEKDAYS = {
 WEEK_INDEXES = {"First", "Second", "Third", "Fourth", "Fifth"}
 TIME_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 MONTHLY_OCCURRENCE_TYPES = {"DayOfMonth", "OrdinalWeekday"}
+SCHEDULE_PARAMETER_TYPES = {"VariableReference"}
+
+
+class ScheduleParameter(BaseModel):
+    name: str
+    type: str
+    value: str
+
+    @model_validator(mode="after")
+    def _validate(self) -> "ScheduleParameter":
+        self.name = self.name.strip()
+        self.type = self.type.strip()
+
+        if not self.name:
+            raise ValueError("Schedule parameter name cannot be empty")
+        if self.type not in SCHEDULE_PARAMETER_TYPES:
+            raise ValueError(
+                "Schedule parameter type must be 'VariableReference'"
+            )
+        if not self.value.strip():
+            raise ValueError("Schedule parameter value cannot be empty")
+
+        return self
 
 
 class Schedule(BaseModel):
@@ -34,7 +58,8 @@ class Schedule(BaseModel):
     occurrence: dict[str, Any] | None = None
     start_datetime: str = "2025-01-01T00:00:00Z"
     end_datetime: str = "2099-12-31T00:00:00Z"
-    local_time_zone_id: str = "Eastern Standard Time"
+    local_time_zone_id: str = "UTC"
+    parameters: list[ScheduleParameter] | None = None
     cron_expression: str | None = None
 
     @model_validator(mode="before")
@@ -72,6 +97,11 @@ class Schedule(BaseModel):
 
         self.start_datetime = self._format_datetime(start_dt)
         self.end_datetime = self._format_datetime(end_dt)
+
+        if self.local_time_zone_id not in WINDOWS_TIME_ZONE_IDS:
+            raise ValueError(
+                f"Invalid local_time_zone_id: {self.local_time_zone_id}"
+            )
 
         if self.schedule_type not in SCHEDULE_TYPES:
             raise ValueError(
