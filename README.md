@@ -1,6 +1,37 @@
 # factl
 
-A CLI tool for deploying and orchestrating data pipelines in Microsoft Fabric using a declarative, Git-backed workflow model. Define pipelines as YAML, validate them locally, and deploy consistently to any environment — no UI clicking required.
+A CLI tool for deploying and orchestrating data pipelines in Microsoft Fabric using a declarative, Git-backed workflow model. Define pipelines as YAML, validate them locally, and deploy consistently to any environment without rebuilding orchestration through the UI.
+
+[![PyPI](https://img.shields.io/pypi/v/factl?style=flat-square)](https://pypi.org/project/factl/) [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://pypi.org/project/factl/) [![Demo](https://img.shields.io/badge/demo-factl--demo-blue?style=flat-square)](https://github.com/billybillysss/factl-demo)
+
+## Why this exists
+
+Microsoft Fabric provides important CI/CD building blocks: Git integration, deployment pipelines, APIs, and variable libraries. But teams still need a practical engineering workflow for authoring pipelines as code, validating changes safely, and promoting orchestration across environments without drift.
+
+In practice, Fabric teams often run into the same friction points:
+
+* **Pipeline authoring is still UI-heavy.** Orchestration often starts as a click-built artifact in the Fabric portal, which makes reviews, reuse, and change tracking harder.
+* **Git integration is not the whole workflow.** Syncing workspace items to Git does not by itself give you a clean branch strategy, isolated developer flow, or a predictable promotion model.
+* **Environment promotion is brittle.** Workspace IDs, Lakehouse IDs, endpoints, bindings, and schedule behavior vary across dev, test, and prod.
+* **Local development is really workspace development.** Teams still need a safe way to validate changes in personal workspaces before touching shared environments.
+* **Reusable orchestration turns into copy-paste.** Similar pipelines are easy to clone, but hard to standardize and evolve consistently.
+* **Operational settings need discipline.** Schedules, control assets, and deployment metadata often need explicit management beyond a basic item publish.
+
+`factl` is designed to solve that orchestration gap.
+
+Instead of treating Fabric pipelines as UI artifacts first and source-controlled artifacts second, `factl` makes the workflow definition the source of truth. Teams define workflows in YAML, validate them locally, compile them into Fabric-native pipeline definitions, and deploy them consistently across personal, dev, test, and production workspaces.
+
+### What factl helps with
+
+* **Pipeline as code.** Author workflows in YAML instead of rebuilding orchestration through the Fabric UI.
+* **Reusable processors.** Deploy Notebooks and DataPipelines once, then compose them into many workflows with different parameters.
+* **Safer development.** Use personal workspaces for isolated testing before touching shared environments.
+* **Environment-aware deployment.** Keep workspace IDs, Lakehouse IDs, endpoints, and other environment-specific values in configuration, not hardcoded in pipeline definitions.
+* **Fail-early validation.** Catch dependency cycles, missing references, duplicate aliases, and schedule issues before deployment.
+* **Declarative schedule management.** Manage workflow schedules as code, with per-environment controls.
+* **Operational visibility.** Generate workflow and schedule snapshots from deployed environments.
+
+In short, `factl` does not replace Microsoft Fabric. It adds structure around how teams define, validate, promote, and operate orchestration in Fabric.
 
 ## What is this?
 
@@ -60,6 +91,15 @@ flowchart LR
 
 ## Quick Start
 
+### Development and promotion workflow
+
+A typical `factl` workflow looks like this: work locally, test in your personal Fabric workspace, then promote through `dev`, `test`, and `prd` via Git.
+
+![factl CLI workflow](docs/.assets/cli-workflow.svg)
+
+Top: where the changes run.
+Bottom: how the branches move through Git.
+
 ### Prerequisites
 
 * Python 3.10 or later
@@ -69,9 +109,7 @@ flowchart LR
 ### 1. Install factl
 
 ```bash
-git clone https://github.com/<your-org>/factl.git
-cd factl
-pip install -e .
+uv tool install factl
 ```
 
 ### 2. Initialize repo configuration
@@ -99,7 +137,7 @@ targets:
     force_disable_schedules: false
     meta_database:
       host: <your-sql-endpoint>
-      name: DB_META
+      name: <your-sql-db>
   test:
     com_workspace_id: <your-test-workspace-guid>
     force_disable_schedules: true
@@ -161,7 +199,9 @@ Open your personal workspace in the Fabric portal. You should see:
 * Compiled DataPipelines under the folder configured by `deployment.orchestration.workflow.workspace_folder` in `project.yaml`
 * Data Lakehouses referenced by processors may live in a separate data workspace, resolved via workflow parameters or parameter files
 
-### Example workflow
+## From YAML to Fabric Pipeline
+
+A workflow in `factl` starts as a small YAML definition. You declare the processors, dependencies, schedules, and parameters, and `factl` compiles that into a Fabric-native DataPipeline.
 
 Here's a complete workflow YAML (authored under the directory configured by `deployment.orchestration.workflow.control_folder` in `project.yaml`, relative to `deployment.control.local_path`):
 
@@ -198,9 +238,13 @@ workflows:
             type: "string"
 ```
 
-The workflow declares three processors (two ingests that run in parallel, followed by a dbt run), a daily schedule, and Jinja2 templating for environment-specific values.
+This YAML produces a Fabric pipeline with a generated start activity, two parallel ingest steps, a downstream dbt step, and a generated end activity:
 
-The processors themselves (`NB_IngestTlcTripsToBronze`, `NB_IngestNoaaWeatherToBronze`, `NB_RunDbtTaxiWeather`) are Fabric items deployed once to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`. They can be referenced by name in any workflow. For example, `NB_IngestNoaaWeatherToBronze` could appear in a different workflow with different `start_date` and `end_date` params — same processor, different behavior.
+![Compiled Fabric pipeline example](docs/.assets/sample-workflow.png)
+
+The workflow declares three processors, with `ingest_tlc` and `ingest_weather` running in parallel before `run_dbt` starts. `factl` turns that declarative graph into Fabric activities and dependencies automatically.
+
+The processors themselves (`NB_IngestTlcTripsToBronze`, `NB_IngestNoaaWeatherToBronze`, `NB_RunDbtTaxiWeather`) are Fabric items deployed once to the workspace folder configured by `deployment.orchestration.processor.workspace_folder` in `project.yaml`. They can then be referenced by name in any workflow with different per-workflow parameters.
 
 ## How it works
 
@@ -235,9 +279,4 @@ Four deployment types are supported:
 
 ## Documentation
 
-* [Getting Started](docs/getting-started.md) — full setup walkthrough
-* [Architecture](docs/architecture.md) — how the framework works
-* [Configuration](docs/configuration.md) — all config files and settings
-* [Workflows](docs/workflows.md) — authoring workflow YAML
-* [Deployment](docs/deployment.md) — deploying to environments and CI/CD
-* [CLI Commands](docs/cli-commands.md) — complete command reference
+Project documentation is being prepared.
