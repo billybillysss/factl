@@ -109,7 +109,13 @@ Bottom: how the branches move through Git.
 ### 1. Install factl
 
 ```bash
-uv tool install factl
+uv add factl
+```
+
+Or, with pip:
+
+```bash
+pip install factl
 ```
 
 ### 2. Initialize repo configuration
